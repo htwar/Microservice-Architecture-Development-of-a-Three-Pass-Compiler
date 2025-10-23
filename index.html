@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>MiniTau Compiler UI</title>
+<title> Microservice Architecture Development of a Three-Pass Compiler </title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
     <div class="card">
     <header>
-        <h1>MiniTau Compiler</h1>
+        <h1> Microservice Architecture Development of a Three-Pass Compiler</h1>
         <div class="tag">3-pass • Lexer → Parser → Codegen</div>
     </header>
 
     <div class="grid">
         <section class="block">
-        <label for="source">Source (MiniTau)</label>
+        <label for="source">Source</label>
         <textarea id="source" rows="18" spellcheck="false" placeholder="// example
 let i = 0;
 while (i < 3) { i = i + 1; }
@@ -32,7 +32,7 @@ print(i);"></textarea>
         </section>
 
         <section class="block">
-        <label for="output">Generated assembly (Tau-Stack)</label>
+        <label for="output">Generated assembly </label>
         <textarea id="output" rows="18" readonly placeholder="PUSH 0
 STORE i
 ...
@@ -177,7 +177,7 @@ HALT"></textarea>
     }
 
     function insertExample() {
-    els.src.value = `// Count to 3
+    els.src.value = `
 let i = 0;
 while (i < 3) { i = i + 1; }
 print(i);`;

@@ -6,6 +6,7 @@ import httpx, os, uuid
 LEX = os.getenv("LEX_URL","http://lexer-svc:8000/lex")
 PARSE = os.getenv("PARSE_URL","http://parser-svc:8000/parse")
 CG = os.getenv("CG_URL","http://codegen-svc:8000/codegen")
+BASE_DIR = os.path.dirname(__file__)
 
 app = FastAPI(title="gateway")
 
@@ -44,5 +45,9 @@ async def download(req: CompileReq):
 
 @app.get("/")
 def root():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "index.html"))
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
+@app.get("/style.css")
+def style():
+    # explicit media_type is nice to have
+    return FileResponse(os.path.join(BASE_DIR, "style.css"), media_type="text/css")
