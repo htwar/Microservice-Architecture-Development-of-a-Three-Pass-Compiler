@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MiniTau Compiler UI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+    <header>
+        <h1>MiniTau Compiler</h1>
+        <div class="tag">3-pass • Lexer → Parser → Codegen</div>
+    </header>
+
+    <div class="grid">
+        <section class="block">
+        <label for="source">Source (MiniTau)</label>
+        <textarea id="source" rows="18" spellcheck="false" placeholder="// example
+let i = 0;
+while (i < 3) { i = i + 1; }
+print(i);"></textarea>
+
+        <div class="row">
+            <button id="compileBtn" class="btn primary">▶ Compile</button>
+            <button id="downloadBtn" class="btn success" disabled>⬇ Download</button>
+            <button id="exampleBtn" class="btn">Insert Example</button>
+            <span id="status" class="status"><span class="dot bad"></span><span>Idle</span></span>
+        </div>
+        <div class="hint">Gateway URL: <span class="mono" id="gw">http://localhost:8080</span></div>
+        </section>
+
+        <section class="block">
+        <label for="output">Generated assembly (Tau-Stack)</label>
+        <textarea id="output" rows="18" readonly placeholder="PUSH 0
+STORE i
+...
+HALT"></textarea>
+
+        <div class="row">
+            <span class="pill mono" id="artifact">artifact: —</span>
+            <span class="pill mono" id="len">lines: —</span>
+        </div>
+        </section>
+    </div>
+
+    <div class="footer">
+        <div>Status: <span class="mono" id="phase">—</span></div>
+        <div>Tip: Press <span class="kbd">Cmd</span>+<span class="kbd">Enter</span> to compile</div>
+    </div>
+    </div>
+</div>
+
+<script>
+(() => {
+    const GW = (new URLSearchParams(location.search)).get('gw') || 'http://localhost:8080';
+    document.getElementById('gw').textContent = GW;
+
+    const els = {
+    src: document.getElementById('source'),
+    out: document.getElementById('output'),
+    compile: document.getElementById('compileBtn'),
+    download: document.getElementById('downloadBtn'),
+    example: document.getElementById('exampleBtn'),
+    status: document.getElementById('status'),
+    phase: document.getElementById('phase'),
+    artifact: document.getElementById('artifact'),
+    len: document.getElementById('len'),
+    };
+
+    const setStatus = (ok, text) => {
+    els.status.querySelector('.dot').className = 'dot ' + (ok ? 'ok' : 'bad');
+    els.status.querySelector('span:nth-child(2)').textContent = text;
+    };
+
+    const setBusy = (busy) => {
+    els.compile.disabled = busy;
+    els.download.disabled = busy || !els.out.value.trim();
+    };
+
+    const countLines = (s) => (s ? (s.match(/\n/g)||[]).length + 1 : 0);
+
+    async function compile() {
+    const source = els.src.value;
+    if (!source.trim()) {
+        setStatus(false, 'No source');
+        return;
+    }
+    setBusy(true); setStatus(true, 'Compiling…'); els.phase.textContent = 'gateway→lexer→parser→codegen';
+    try {
+        const res = await fetch(`${GW}/compile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+        els.out.value = '';
+        els.artifact.textContent = 'artifact: —';
+        els.len.textContent = 'lines: —';
+        setStatus(false, `Error [${data.phase}] ${data.code || ''}`);
+        els.phase.textContent = (data.phase || 'error') + (data.line ? ` @ ${data.line}:${data.col}` : '');
+        alert(`${data.phase?.toUpperCase() || 'ERROR'}: ${data.msg || 'Unknown error'}`);
+        return;
+        }
+        const program = data.data.program || '';
+        els.out.value = program;
+        els.artifact.textContent = `artifact: ${data.data.artifact_name || 'program.tsi'}`;
+        els.len.textContent = `lines: ${countLines(program)}`;
+        setStatus(true, 'OK');
+        els.phase.textContent = 'done';
+        els.download.disabled = false;
+    } catch (e) {
+        setStatus(false, 'Gateway unreachable');
+        els.phase.textContent = 'network error';
+        console.error(e);
+        alert('Failed to reach gateway at ' + GW);
+    } finally {
+        setBusy(false);
+    }
+    }
+
+    async function download() {
+    const source = els.src.value;
+    setBusy(true); setStatus(true, 'Packaging…'); els.phase.textContent = 'download';
+    try {
+        const res = await fetch(`${GW}/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'program.tsi';
+        document.body.appendChild(a); a.click();
+        a.remove(); URL.revokeObjectURL(url);
+        setStatus(true, 'Downloaded');
+        els.phase.textContent = 'done';
+    } catch (e) {
+        setStatus(false, 'Download failed');
+        els.phase.textContent = 'network error';
+        console.error(e);
+        alert('Failed to reach gateway at ' + GW);
+    } finally {
+        setBusy(false);
+    }
+    }
+
+    async function download() {
+    const source = els.src.value;
+    setBusy(true); setStatus(true, 'Packaging…'); els.phase.textContent = 'download';
+    try {
+        const res = await fetch(`${GW}/download`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'program.tsi';
+        document.body.appendChild(a); a.click();
+        a.remove(); URL.revokeObjectURL(url);
+        setStatus(true, 'Downloaded');
+        els.phase.textContent = 'done';
+    } catch (e) {
+        setStatus(false, 'Download failed');
+        els.phase.textContent = 'download error';
+        alert('Download failed: ' + e.message);
+    } finally {
+        setBusy(false);
+    }
+    }
+
+    function insertExample() {
+    els.src.value = `// Count to 3
+let i = 0;
+while (i < 3) { i = i + 1; }
+print(i);`;
+    }
+
+    els.compile.addEventListener('click', compile);
+    els.download.addEventListener('click', download);
+    els.example.addEventListener('click', insertExample);
+    els.src.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); compile(); }
+    });
+    els.download.disabled = !els.out.value.trim();
+})();
+</script>
+</body>
+</html>
