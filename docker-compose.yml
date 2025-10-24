@@ -13,6 +13,8 @@ services:
       dockerfile: Dockerfile
       args: { ENTRY: "parser:app", PORT: 8000 }
     command: uvicorn parser:app --host 0.0.0.0 --port 8000
+    environment:
+      CODEGEN_URL: http://codegen-svc:8000
     ports: ["8002:8000"]
 
   codegen-svc:
@@ -30,8 +32,7 @@ services:
       args: { ENTRY: "orchestrator:app", PORT: 8000 }
     command: uvicorn orchestrator:app --host 0.0.0.0 --port 8000
     environment:
-      LEX_URL: http://lexer-svc:8000/lex
-      PARSE_URL: http://parser-svc:8000/parse
-      CG_URL: http://codegen-svc:8000/codegen
+      LEX_URL:  http://lexer-svc:8000/lex
+      PARSE_URL: http://parser-svc:8000/compile
     depends_on: [lexer-svc, parser-svc, codegen-svc]
     ports: ["8080:8000"]

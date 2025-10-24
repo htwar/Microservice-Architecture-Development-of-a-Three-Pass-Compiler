@@ -2,8 +2,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any, Tuple
 from models import ApiOk, ApiErr
+import os, requests
 
 app = FastAPI(title="parser-svc")
+CODEGEN_URL = os.getenv("CODEGEN_URL", "http://codegen-svc:8000")
 
 @app.get("/healthz")
 def healthz():
@@ -102,15 +104,17 @@ def parse(tokens):
         return {"type":"While","test":test,"body":body}
 
     def stmt():
-        t=s.peek()["type"]
-        if t=="KW_LET": return vardecl()
-        if t=="IDENT":
-            # lookahead for '='
-            if s.t[s.i+1]["type"]=="EQUAL": return assign_stmt()
-        if t=="KW_PRINT": return print_stmt()
-        if t=="KW_IF": return ifstmt()
-        if t=="KW_WHILE": return whilestmt()
-        raise SyntaxError((s.peek().get("line"), s.peek().get("col"), "E_PARSE_STMT", f"Unexpected {t}"))
+        t = s.peek()["type"]
+        if t == "KW_LET": return vardecl()
+        if t == "IDENT":
+            # safe lookahead for '='
+            if s.i + 1 < len(s.t) and s.t[s.i + 1]["type"] == "EQUAL":
+                return assign_stmt()
+        if t == "KW_PRINT": return print_stmt()
+        if t == "KW_IF": return ifstmt()
+        if t == "KW_WHILE": return whilestmt()
+        raise SyntaxError((s.peek().get("line"), s.peek().get("col"),
+                        "E_PARSE_STMT", f"Unexpected {t}"))
 
     body=[]
     while s.peek()["type"]!="EOF" and s.i < len(s.t):
@@ -125,3 +129,24 @@ def parse_api(req: ParseReq):
     except SyntaxError as e:
         line,col,code,msg = e.args[0]
         return ApiErr(phase="parse", line=line, col=col, code=code, msg=msg)
+
+class CompileReq(BaseModel):
+    tokens: List[Dict[str, Any]]
+
+@app.post("/compile")
+def compile_api(req: CompileReq):
+    try:
+        ast = parse(req.tokens + [{"type":"EOF","lexeme":"","line":0,"col":0}])
+
+        # forward AST to codegen
+        r = requests.post(f"{CODEGEN_URL}/codegen", json={"ast": ast}, timeout=5)
+        r.raise_for_status()
+        # assuming codegen returns ApiOk/ApiErr-shape JSON already
+        return r.json()
+
+    except SyntaxError as e:
+        line, col, code, msg = e.args[0]
+        return ApiErr(phase="parse", line=line, col=col, code=code, msg=msg)
+    except requests.RequestException as e:
+        return ApiErr(phase="parse", line=None, col=None, code="E_FORWARD_CODEGEN",
+                    msg=f"Failed to contact codegen: {e}")

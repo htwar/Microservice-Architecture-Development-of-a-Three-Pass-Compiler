@@ -4,6 +4,7 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir fastapi uvicorn pydantic httpx requests
 
 # copy all your .py (lexer.py, parser.py, codegen.py, orchestrator.py, models.py)
 COPY . .
